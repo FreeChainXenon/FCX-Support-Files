@@ -1,0 +1,294 @@
+/* Modified for FreeChainXenon by Aiden Isik, 2025 */
+/* There are probably some things I did wrong here, but oh well */
+/* If it works, it works */
+
+/* Copyright (C) 2014-2024 Free Software Foundation, Inc.
+   Copying and distribution of this script, with or without modification,
+   are permitted in any medium without royalty provided the copyright
+   notice and this notice are preserved.  */
+OUTPUT_FORMAT("elf32-powerpc", "elf32-powerpc",
+	      "elf32-powerpc")
+OUTPUT_ARCH(powerpc:common)
+ENTRY(_start)
+SEARCH_DIR("/usr/local/fcx/powerpc64-fcx-xenon/lib32"); SEARCH_DIR("/usr/local/fcx/powerpc64-fcx-xenon/lib");
+PROVIDE (__stack = 0); PROVIDE (___stack = 0);
+SECTIONS
+{
+  /* Read-only sections, merged into text segment: */
+  PROVIDE (__executable_start = SEGMENT_START("text-segment", (BASE_ADDR + (2 * ALIGNMENT))));
+  . = SEGMENT_START("text-segment", (BASE_ADDR + (2 * ALIGNMENT))) + SIZEOF_HEADERS;
+
+  . = ALIGN(ALIGNMENT);
+  .interp ALIGN(ALIGNMENT) : { *(.interp) }
+
+  . = ALIGN(ALIGNMENT);
+  .note.gnu.build-id ALIGN(ALIGNMENT) : { *(.note.gnu.build-id) }
+
+  . = ALIGN(ALIGNMENT);
+  .hash ALIGN(ALIGNMENT) : { *(.hash) }
+
+  . = ALIGN(ALIGNMENT);
+  .gnu.hash ALIGN(ALIGNMENT) : { *(.gnu.hash) }
+
+  . = ALIGN(ALIGNMENT);
+  .dynsym ALIGN(ALIGNMENT) : { *(.dynsym) }
+
+  . = ALIGN(ALIGNMENT);
+  .dynstr ALIGN(ALIGNMENT) : { *(.dynstr) }
+
+  . = ALIGN(ALIGNMENT);
+  .gnu.version ALIGN(ALIGNMENT) : { *(.gnu.version) }
+
+  . = ALIGN(ALIGNMENT);
+  .gnu.version_d ALIGN(ALIGNMENT) : { *(.gnu.version_d) }
+
+  . = ALIGN(ALIGNMENT);
+  .gnu.version_r ALIGN(ALIGNMENT) : { *(.gnu.version_r) }
+
+  . = ALIGN(ALIGNMENT);
+  .init ALIGN(ALIGNMENT) :
+  {
+    KEEP (*(SORT_NONE(.init)))
+  }
+
+  . = ALIGN(ALIGNMENT);
+  .text ALIGN(ALIGNMENT) :
+  {
+    *(.text.unlikely .text.*_unlikely .text.unlikely.*)
+    *(.text.exit .text.exit.*)
+    *(.text.startup .text.startup.*)
+    *(.text.hot .text.hot.*)
+    *(SORT(.text.sorted.*))
+    *(.text .stub .text.* .gnu.linkonce.t.*)
+    /* .gnu.warning sections are handled specially by elf.em.  */
+    *(.gnu.warning)
+    *(.glink)
+  }
+
+  . = ALIGN(ALIGNMENT);
+  .fini ALIGN(ALIGNMENT) :
+  {
+    KEEP (*(SORT_NONE(.fini)))
+  }
+  PROVIDE (__etext = .);
+  PROVIDE (_etext = .);
+  PROVIDE (etext = .);
+
+  . = ALIGN(ALIGNMENT);
+  .rodata ALIGN(ALIGNMENT) : { *(.rodata .rodata.* .gnu.linkonce.r.*) }
+
+  . = ALIGN(ALIGNMENT);
+  .rodata1 ALIGN(ALIGNMENT) : { *(.rodata1) }
+
+  . = ALIGN(ALIGNMENT);
+  .sdata2 ALIGN(ALIGNMENT) :
+  {
+    *(.sdata2 .sdata2.* .gnu.linkonce.s2.*)
+  }
+
+  . = ALIGN(ALIGNMENT);
+  .sbss2 ALIGN(ALIGNMENT) : { *(.sbss2 .sbss2.* .gnu.linkonce.sb2.*) }
+
+  . = ALIGN(ALIGNMENT);
+  .eh_frame_hdr ALIGN(ALIGNMENT) : { *(.eh_frame_hdr) *(.eh_frame_entry .eh_frame_entry.*) }
+
+  . = ALIGN(ALIGNMENT);
+  .eh_frame ALIGN(ALIGNMENT) : ONLY_IF_RO { KEEP (*(.eh_frame)) *(.eh_frame.*) }
+
+  . = ALIGN(ALIGNMENT);
+  .sframe ALIGN(ALIGNMENT) : ONLY_IF_RO { *(.sframe) *(.sframe.*) }
+
+  . = ALIGN(ALIGNMENT);
+  .gcc_except_table ALIGN(ALIGNMENT) : ONLY_IF_RO { *(.gcc_except_table .gcc_except_table.*) }
+
+  . = ALIGN(ALIGNMENT);
+  .gnu_extab ALIGN(ALIGNMENT) : ONLY_IF_RO { *(.gnu_extab*) }
+
+  /* Adjust the address for the data segment.  We want to adjust up to
+     the same address within the page on the next page up.  */
+  . = DATA_SEGMENT_ALIGN (CONSTANT (MAXPAGESIZE), CONSTANT (COMMONPAGESIZE));
+
+
+  /* Exception handling  */
+  . = ALIGN(ALIGNMENT);
+  .eh_frame ALIGN(ALIGNMENT) : ONLY_IF_RW { KEEP (*(.eh_frame)) *(.eh_frame.*) }
+
+  . = ALIGN(ALIGNMENT);
+  .sframe ALIGN(ALIGNMENT) : ONLY_IF_RW { *(.sframe) *(.sframe.*) }
+
+  . = ALIGN(ALIGNMENT);
+  .gnu_extab ALIGN(ALIGNMENT) : ONLY_IF_RW { *(.gnu_extab) }
+
+  . = ALIGN(ALIGNMENT);
+  .gcc_except_table ALIGN(ALIGNMENT) : ONLY_IF_RW { *(.gcc_except_table .gcc_except_table.*) }
+
+  . = ALIGN(ALIGNMENT);
+  .exception_ranges ALIGN(ALIGNMENT) : ONLY_IF_RW { *(.exception_ranges*) }
+
+  /* Thread Local Storage sections  */
+  . = ALIGN(ALIGNMENT);
+  .tdata ALIGN(ALIGNMENT) :
+   {
+     PROVIDE_HIDDEN (__tdata_start = .);
+     *(.tdata .tdata.* .gnu.linkonce.td.*)
+   }
+
+   . = ALIGN(ALIGNMENT);
+  .tbss ALIGN(ALIGNMENT) : { *(.tbss .tbss.* .gnu.linkonce.tb.*) *(.tcommon) }
+
+  . = ALIGN(ALIGNMENT);
+  .preinit_array ALIGN(ALIGNMENT) :
+  {
+    PROVIDE_HIDDEN (__preinit_array_start = .);
+    KEEP (*(.preinit_array))
+    PROVIDE_HIDDEN (__preinit_array_end = .);
+  }
+
+  . = ALIGN(ALIGNMENT);
+  .init_array ALIGN(ALIGNMENT) :
+  {
+    PROVIDE_HIDDEN (__init_array_start = .);
+    KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
+    KEEP (*(.init_array EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o ) .ctors))
+    PROVIDE_HIDDEN (__init_array_end = .);
+  }
+
+  . = ALIGN(ALIGNMENT);
+  .fini_array ALIGN(ALIGNMENT) :
+  {
+    PROVIDE_HIDDEN (__fini_array_start = .);
+    KEEP (*(SORT_BY_INIT_PRIORITY(.fini_array.*) SORT_BY_INIT_PRIORITY(.dtors.*)))
+    KEEP (*(.fini_array EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o ) .dtors))
+    PROVIDE_HIDDEN (__fini_array_end = .);
+  }
+
+  . = ALIGN(ALIGNMENT);
+  .ctors ALIGN(ALIGNMENT) :
+  {
+    /* gcc uses crtbegin.o to find the start of
+       the constructors, so we make sure it is
+       first.  Because this is a wildcard, it
+       doesn't matter if the user does not
+       actually link against crtbegin.o; the
+       linker won't look for a file to match a
+       wildcard.  The wildcard also means that it
+       doesn't matter which directory crtbegin.o
+       is in.  */
+    KEEP (*crtbegin.o(.ctors))
+    KEEP (*crtbegin?.o(.ctors))
+    /* We don't want to include the .ctor section from
+       the crtend.o file until after the sorted ctors.
+       The .ctor section from the crtend file contains the
+       end of ctors marker and it must be last */
+    KEEP (*(EXCLUDE_FILE (*crtend.o *crtend?.o ) .ctors))
+    KEEP (*(SORT(.ctors.*)))
+    KEEP (*(.ctors))
+  }
+
+  . = ALIGN(ALIGNMENT);
+  .dtors ALIGN(ALIGNMENT) :
+  {
+    KEEP (*crtbegin.o(.dtors))
+    KEEP (*crtbegin?.o(.dtors))
+    KEEP (*(EXCLUDE_FILE (*crtend.o *crtend?.o ) .dtors))
+    KEEP (*(SORT(.dtors.*)))
+    KEEP (*(.dtors))
+  }
+
+  . = ALIGN(ALIGNMENT);
+  .jcr ALIGN(ALIGNMENT) : { KEEP (*(.jcr)) }
+
+  . = ALIGN(ALIGNMENT);
+  .data.rel.ro ALIGN(ALIGNMENT) : { *(.data.rel.ro.local* .gnu.linkonce.d.rel.ro.local.*) *(.data.rel.ro .data.rel.ro.* .gnu.linkonce.d.rel.ro.*) }
+
+  . = ALIGN(ALIGNMENT);
+  .fixup ALIGN(ALIGNMENT) : { *(.fixup) }
+
+  . = ALIGN(ALIGNMENT);
+  .got1 ALIGN(ALIGNMENT) : { *(.got1) }
+
+  . = ALIGN(ALIGNMENT);
+  .got2 ALIGN(ALIGNMENT) : { *(.got2) }
+
+  . = ALIGN(ALIGNMENT);
+  .dynamic ALIGN(ALIGNMENT) : { *(.dynamic) }
+
+  . = ALIGN(ALIGNMENT);
+  .branch_lt ALIGN(ALIGNMENT) : ALIGN(4) { *(.branch_lt) }
+
+  . = ALIGN(ALIGNMENT);
+  .got ALIGN(ALIGNMENT) : SPECIAL { *(.got) }
+
+  . = DATA_SEGMENT_RELRO_END (0, .);
+  . = ALIGN(ALIGNMENT);
+  .plt ALIGN(ALIGNMENT) : SPECIAL { *(.plt) }
+
+  . = ALIGN(ALIGNMENT);
+  .data ALIGN(ALIGNMENT) :
+  {
+    *(.data .data.* .gnu.linkonce.d.*)
+    SORT(CONSTRUCTORS)
+  }
+
+  . = ALIGN(ALIGNMENT);
+  .data1 ALIGN(ALIGNMENT) : { *(.data1) }
+
+  . = ALIGN(ALIGNMENT);
+  .got ALIGN(ALIGNMENT) : SPECIAL { *(.got) }
+
+  /* We want the small data sections together, so single-instruction offsets
+     can access them all, and initialized data all before uninitialized, so
+     we can shorten the on-disk segment size.  */
+  . = ALIGN(ALIGNMENT);
+  .sdata ALIGN(ALIGNMENT) :
+  {
+    *(.sdata .sdata.* .gnu.linkonce.s.*)
+  }
+
+  . = ALIGN(ALIGNMENT);
+  _edata = .; PROVIDE (edata = .);
+  . = ALIGN(ALIGNOF(NEXT_SECTION));
+  __bss_start = .;
+
+  . = ALIGN(ALIGNMENT);
+  .sbss ALIGN(ALIGNMENT) :
+  {
+    PROVIDE (__sbss_start = .); PROVIDE (___sbss_start = .);
+    *(.dynsbss)
+    *(.sbss .sbss.* .gnu.linkonce.sb.*)
+    *(.scommon)
+    PROVIDE (__sbss_end = .); PROVIDE (___sbss_end = .);
+  }
+
+  . = ALIGN(ALIGNMENT);
+  .plt ALIGN(ALIGNMENT) : SPECIAL { *(.plt) }
+
+  . = ALIGN(ALIGNMENT);
+  .iplt ALIGN(ALIGNMENT) : { *(.iplt) }
+
+  . = ALIGN(ALIGNMENT);
+  .bss ALIGN(ALIGNMENT) :
+  {
+   *(.dynbss)
+   *(.bss .bss.* .gnu.linkonce.b.*)
+   *(COMMON)
+   /* Align here to ensure that the .bss section occupies space up to
+      _end.  Align after .bss to ensure correct alignment even if the
+      .bss section disappears because there are no input sections.
+      FIXME: Why do we need it? When there is no .bss section, we do not
+      pad the .data section.  */
+   /*. = ALIGN(. != 0 ? 32 / 8 : 1);*/
+   . = ALIGN(ALIGNMENT);
+  }
+
+  . = ALIGN(32 / 8);
+  . = ALIGN(ALIGNMENT);
+  . = SEGMENT_START("ldata-segment", .);
+  . = ALIGN(32 / 8);
+  . = ALIGN(ALIGNMENT);
+  __end = .;
+  . = ALIGN(ALIGNMENT);
+  _end = .; PROVIDE (end = .);
+  . = DATA_SEGMENT_END (.);
+  . = ALIGN(ALIGNMENT);
+}
