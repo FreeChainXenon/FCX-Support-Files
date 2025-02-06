@@ -87,7 +87,7 @@ SECTIONS
   }
 
   . = ALIGN(ALIGNMENT);
-  .sbss2 ALIGN(ALIGNMENT) : { *(.sbss2 .sbss2.* .gnu.linkonce.sb2.*) }
+  .sbss2 ALIGN(ALIGNMENT) (TYPE=SHT_PROGBITS) : { BYTE(0) *(.sbss2 .sbss2.* .gnu.linkonce.sb2.*) }
 
   . = ALIGN(ALIGNMENT);
   .eh_frame_hdr ALIGN(ALIGNMENT) : { *(.eh_frame_hdr) *(.eh_frame_entry .eh_frame_entry.*) }
@@ -134,7 +134,7 @@ SECTIONS
    }
 
    . = ALIGN(ALIGNMENT);
-  .tbss ALIGN(ALIGNMENT) : { *(.tbss .tbss.* .gnu.linkonce.tb.*) *(.tcommon) }
+  .tbss ALIGN(ALIGNMENT) (TYPE=SHT_PROGBITS) : { BYTE(0) *(.tbss .tbss.* .gnu.linkonce.tb.*) *(.tcommon) }
 
   . = ALIGN(ALIGNMENT);
   .preinit_array ALIGN(ALIGNMENT) :
@@ -251,8 +251,9 @@ SECTIONS
   __bss_start = .;
 
   . = ALIGN(ALIGNMENT);
-  .sbss ALIGN(ALIGNMENT) :
+  .sbss ALIGN(ALIGNMENT) (TYPE=SHT_PROGBITS) :
   {
+    BYTE(0)
     PROVIDE (__sbss_start = .); PROVIDE (___sbss_start = .);
     *(.dynsbss)
     *(.sbss .sbss.* .gnu.linkonce.sb.*)
@@ -267,8 +268,9 @@ SECTIONS
   .iplt ALIGN(ALIGNMENT) : { *(.iplt) }
 
   . = ALIGN(ALIGNMENT);
-  .bss ALIGN(ALIGNMENT) :
+  .bss ALIGN(ALIGNMENT) (TYPE=SHT_PROGBITS) :
   {
+   BYTE(0)
    *(.dynbss)
    *(.bss .bss.* .gnu.linkonce.b.*)
    *(COMMON)
