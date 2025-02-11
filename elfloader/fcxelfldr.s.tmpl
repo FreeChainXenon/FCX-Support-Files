@@ -45,59 +45,59 @@
 
 	
 # Read 32-bit little endian value and byte-swap it 
-# IN: r4 == base address of little endian value
+# IN: r3 == base address of little endian value
 # IN: LR == address to return to
-# OUT: r4 == read and byteswapped value
+# OUT: r3 == read and byteswapped value
 get32BitLittleEndian:
-	# r5 == how many bytes to left shift each value read
-	# r6 == working register used to store currently retrieved bytes
-	# r7 == register to store current byte before shift
+	# r4 == how many bytes to left shift each value read
+	# r5 == working register used to store currently retrieved bytes
+	# r6 == register to store current byte before shift
 	
-	li r5, 24 # Register storing how many bits to shift each value 
+	li r4, 24 # Register storing how many bits to shift each value 
 
 	# Most significant byte
-	lbz r6, 3(r4)
-	slw r6, r6, r5
-	subi r5, r5, 8
+	lbz r5, 3(r3)
+	slw r5, r5, r4
+	subi r4, r4, 8
 	
-	lbz r7, 2(r4)
-	slw r7, r7, r5
-	subi r5, r5, 8
-	or r6, r6, r7
+	lbz r6, 2(r3)
+	slw r6, r6, r4
+	subi r4, r4, 8
+	or r5, r5, r6
 	
-	lbz r7, 1(r4)
-	slw r7, r7, r5
-	or r6, r6, r7 
+	lbz r6, 1(r3)
+	slw r6, r6, r4
+	or r5, r5, r6 
 
 	# Least significant byte
-	lbz r7, 0(r4)
-	or r6, r6, r7
+	lbz r6, 0(r3)
+	or r5, r5, r6
 	
-	mr r4, r6 # Final value
+	mr r3, r5 # Final value
 	blr
 
 
 # Read 16-bit little endian value and byte-swap it 
-# IN: r4 == base address of little endian value
+# IN: r3 == base address of little endian value
 # IN: LR == address to return to
-# OUT: r4 == read and byteswapped value
+# OUT: r3 == read and byteswapped value
 get16BitLittleEndian:
-	# r5 == how many bytes to left shift each value read
-	# r6 == working register used to store currently retrieved bytes
-	# r7 == register to store current byte before shift
+	# r4 == how many bytes to left shift each value read
+	# r5 == working register used to store currently retrieved bytes
+	# r6 == register to store current byte before shift
 	
-	li r5, 8 # Register storing how many bits to shift each value 
+	li r4, 8 # Register storing how many bits to shift each value 
 
 	# Most significant byte
-	lbz r6, 1(r4)
-	slw r6, r6, r5
-	subi r5, r5, 8
+	lbz r5, 1(r3)
+	slw r5, r5, r4
+	subi r4, r4, 8
 
 	# Least significant byte
-	lbz r7, 0(r4)
-	or r6, r6, r7
+	lbz r6, 0(r3)
+	or r5, r5, r6
 	
-	mr r4, r6 # Final value
+	mr r3, r5 # Final value
 	blr
 
 	
@@ -116,39 +116,40 @@ kernelFunctionNotFound:
 # OUT: r3 == address of kernel function (or 0 if it could not be found)
 getKernelFunctionAddrByOrdinal:
 	mflr r12
+	mr r7, r3
 
 	# Getting the address of the PE header
-	lis r4, 0x8004
-	ori r4, r4, 0x3C
+	lis r3, 0x8004
+	ori r3, r3, 0x3C
 
 	bl get32BitLittleEndian
-	addis r4, r4, 0x8004 # Final address (RVA + kernel base address) 
+	addis r3, r3, 0x8004 # Final address (RVA + kernel base address) 
 	
 	# Getting the address of the export directory table
-	addi r4, r4, 0x78
+	addi r3, r3, 0x78
 	bl get32BitLittleEndian
-	addis r4, r4, 0x8004 # Final address (RVA + kernel base address)
+	addis r3, r3, 0x8004 # Final address (RVA + kernel base address)
 	
 	# Making sure the ordinal exists (ordinal is not greater than or equal to export count)
-	mr r8, r4 # Putting export directory table address into a register unused by get32BitLittleEndian
-	addi r4, r4, 0x14 # Address of export count 
+	mr r8, r3 # Putting export directory table address into a register unused by get32BitLittleEndian
+	addi r3, r3, 0x14 # Address of export count 
 
 	bl get32BitLittleEndian # Get export count	
-	cmpw r3, r4
+	cmpw r7, r3
 	bgt kernelFunctionNotFound # Ordinal does not exist
 	
 	# Get address of the export address table, and retrieve the address of our function
-	subi r3, r3, 1 # Converting ordinal into kernel EAT index
+	subi r7, r7, 1 # Converting ordinal into kernel EAT index
 
-	addi r4, r8, 0x1C # Put address of RVA to EAT into r4
+	addi r3, r8, 0x1C # Put address of RVA to EAT into r4
 	bl get32BitLittleEndian # Get RVA to EAT
-	addis r4, r4, 0x8004 # Address
+	addis r3, r3, 0x8004 # Address
 
 	# Finally, read our address from the export address table and return it
-	mulli r3, r3, 4 # Multiply index by 4 to get export offset
-	add r4, r4, r3 # Add export offset to EAT address to get export address
+	mulli r7, r7, 4 # Multiply index by 4 to get export offset
+	add r3, r3, r7 # Add export offset to EAT address to get export address
 	bl get32BitLittleEndian
-	addis r3, r4, 0x8004 # Finally, the address of our function 
+	addis r3, r3, 0x8004 # Finally, the address of our function 
 	
 	mtlr r12
 	blr
@@ -354,38 +355,38 @@ findPeHeaderLoop:
 	bne nextPageFindPeHeader
 
 	# Check if offset to new header is valid. If not, PE is not here.
-	addi r4, r14, 0x3C
+	addi r3, r14, 0x3C
 	bl get32BitLittleEndian
 
-	cmpli cr0, r4, 0x40 # If relative offset < 0x40, it's invalid.
+	cmpli cr0, r3, 0x40 # If relative offset < 0x40, it's invalid.
 	blt nextPageFindPeHeader
 
-	cmpl cr0, r4, r15 # If relative offset > page size, it's invalid.
+	cmpl cr0, r3, r15 # If relative offset > page size, it's invalid.
 	bge nextPageFindPeHeader
 
 	# Check if new header "PE\0\0" magic is valid. If it is, we found the PE header.
+
+	# Load in the magic in memory
+	add r14, r14, r3 # Transform new header offset to address
+	lwz r4, 0(r14)
 
 	# Load in the magic we have on record
 	lis r3, PE_NEW_MAGIC_1
 	ori r3, r3, PE_NEW_MAGIC_2
 
-	# Load in the magic in memory
-	add r14, r14, r4 # Transform new header offset to address
-	lwz r5, 0(r14)
-
 	# Compare them
-	cmpl cr0, r3, r5
+	cmpl cr0, r3, r4
 	beq foundPeHeader
 
 nextPageFindPeHeader:
-	subf r14, r3, r14
+	subf r14, r15, r14
 	b findPeHeaderLoop
 
 foundPeHeader:
 	# Get number of sections in the PE and store that in r15
-	addi r4, r14, 0x6
+	addi r3, r14, 0x6
 	bl get16BitLittleEndian
-	mr r15, r4
+	mr r15, r3
 
 	# Search section table until we find the ".elf" section
 	addi r16, r14, 0xF8 # Address of beginning of section table
@@ -424,9 +425,9 @@ foundElfSection:
 	# Base of current section entry is currently in r15
 	# Get the RVA from the entry, turn it into an address, and put it in r3
 	
-	addi r4, r15, 0xC # 0xC == offset in entry of RVA
+	addi r3, r15, 0xC # 0xC == offset in entry of RVA
 	bl get32BitLittleEndian
-	add r3, r18, r4 # Base address + RVA
+	add r3, r18, r3 # Base address + RVA
 	
 	# Restore non-volatile integer registers
 	bl restoreNonVolatileRegisters
@@ -434,7 +435,7 @@ foundElfSection:
 	# Restore the link register and return
 	mtlr r12
 	blr
-
+	
 
 # Verifies the embedded ELF file
 # IN: r3 == address in memory of the ELF
