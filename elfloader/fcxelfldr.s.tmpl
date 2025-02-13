@@ -41,6 +41,11 @@
 .set ELF_MACHINE_PPC, 0x14
 .set ELF_HEADER_SIZE, 0x34
 
+# Constants used for dynamic linking
+.set ELF_SECT_TYPE_DYNAMIC, 0x6
+.set ELF_DYN_TAG_STRTAB, 0x5
+.set ELF_DYN_TAG_SYMTAB, 0x6
+
 .global _start
 
 	
@@ -316,7 +321,14 @@ _start:
 # Responsible for calling the different functions to load the ELF
 loadElf:
 	bl findElfSection # Returns address to beginning of ELF in r3
+	mr r14, r3 # Save ELF address in non-volatile register
+	
 	bl verifyElf # Takes address to ELF in r3, only returns if ELF is valid
+
+	mr r3, r14 # Restore ELF address
+	bl resolveImportsElf # Resolve any dynamic imports we can
+
+	mr r3, r14 # Restore ELF address
 	b executeElf # Takes address to ELF in r3, never returns
 
 
@@ -436,7 +448,7 @@ foundElfSection:
 	mtlr r12
 	blr
 	
-
+	
 # Verifies the embedded ELF file
 # IN: r3 == address in memory of the ELF
 # IN: LR == address to return to
@@ -483,6 +495,117 @@ verifyElf:
 	bne error
 	
 	# ELF is valid!
+	blr
+
+
+# Resolves any dynamic imports within the embedded ELF file
+# IN: r3 == address in memory of the ELF
+# IN: LR == address to return to
+resolveImportsElf:
+	mflr r12
+	bl saveNonVolatileRegisters
+
+	# Save the address of the ELF to r14
+	mr r14, r3
+	
+	# Look for the dynamic symbol table (.dynsym)
+	
+	# Get the section table address and put it in r15
+	lwz r15, 0x20(r14)
+	add r15, r15, r14
+
+	# Get the size of each section table entry and put it in r16
+	lhz r16, 0x2E(r14)
+	
+	# Get the number of entries in the section table and put it in r17
+	lhz r17, 0x30(r14)
+
+	# Loop through the section table (backwards) until we find the SHT_DYNAMIC section
+	# This will yield the dynamic symbol and string table offsets
+
+	mtctr r17
+
+elfImportSectionTableLoop:
+	# If we're at section entry 0 (null), we don't have any dynamic symbols. Return.
+	mfctr r3
+	subi r3, r3, 1
+	cmpli cr0, r3, 0
+	beq resolveImportsElfReturn
+
+	# Get address of current section entry
+	mullw r3, r3, r16
+	add r3, r3, r15
+
+	# Check the section type. If it's DYNAMIC, we have our section.
+	lwz r4, 0x4(r3)
+	cmpli cr0, r4, ELF_SECT_TYPE_DYNAMIC
+	beq elfGotDynamicImportSectionEntry
+	
+	bdnz elfImportSectionTableLoop
+
+elfGotDynamicImportSectionEntry:
+	# Get address of section and put it in r15
+	lwz r15, 0xC(r3)
+
+	# Now, get the addresses of the DYNSTR and DYNSYM sections
+	
+	# Get number of entries in DYNAMIC section and put it in r16
+	lwz r16, 0x14(r3) # Read total size of section
+	li r3, 0x8 # 0x8 == size of each entry
+	divwu r16, r16, r3 # Number of entries
+	mtctr r16
+	
+	# Loop through each entry until we find both STRTAB (r17) and SYMTAB (r18)
+	li r17, 0
+	li r18, 0
+
+elfFindDynamicImportTablesLoop:
+	# Get address of current entry
+	mfctr r3
+	subi r3, r3, 1
+	mullw r3, r3, 0x8 # 0x8 == size of each entry
+	add r3, r3, r15
+
+	# Check entry type. If it's STRTAB or SYMTAB, add it to it's respective register
+	lwz r4, 0(r3)
+
+	cmpli cr0, r4, ELF_DYN_TAG_STRTAB
+	beq elfDynamicImportsFoundStrTab
+
+	cmpli cr0, r4, ELF_DYN_TAG_SYMTAB
+	beq elfDynamicImportsFoundSymTab
+
+	b elfFindDynamicImportTablesNext
+	
+elfDynamicImportsFoundStrTab:	
+	lwz r17, 0x4(r3)
+
+	# If we previously found the symbol table, we've got them both
+	cmpli cr0, r18, 0
+	bne elfFoundDynamicImportTables
+	b elfFindDynamicImportTablesNext
+
+elfDynamicImportsFoundSymTab:
+	lwz r18, 0x4(r3)
+
+	# If we previously found the string table, we've got them both
+	cmpli cr0, r17, 0
+	bne elfFoundDynamicImportTables
+	b elfFindDynamicImportTablesNext
+
+elfFindDynamicImportTablesNext:	
+	bdnz elfFindDynamicImportTablesLoop
+
+# If we get here, we couldn't find both tables. Return.
+	b resolveImportsElfReturn
+
+elfFoundDynamicImportTables:
+	# Address of STRTAB is now in r17, SYMTAB in r18
+	
+	
+resolveImportsElfReturn:
+	bl restoreNonVolatileRegisters
+	mtlr r12
 	blr
 
 
