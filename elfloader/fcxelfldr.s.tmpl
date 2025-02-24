@@ -15,6 +15,8 @@
 
 # Kernel function ordinal constants	
 .set KERN_ORDINAL_VDDISPLAYFATALERROR, 0x1B2
+.set KERN_ORDINAL_XEXGETMODULEHANDLE, 0x195
+.set KERN_ORDINAL_XEXGETPROCEDUREADDRESS, 0x197
 
 # PE MZ magic ('M' 'Z')
 .set PE_MZ_MAGIC, 0x4D5A
@@ -43,8 +45,10 @@
 
 # Constants used for dynamic linking
 .set ELF_SECT_TYPE_DYNAMIC, 0x6
+.set ELF_DYN_TAG_HASH, 0x4
 .set ELF_DYN_TAG_STRTAB, 0x5
 .set ELF_DYN_TAG_SYMTAB, 0x6
+.set ELF_DYN_SHN_UNDEF, 0x0
 
 .global _start
 
@@ -498,11 +502,40 @@ verifyElf:
 	blr
 
 
+# Resolves a single dynamic symbol import
+# IN: r3 == address of symbol entry
+# IN: r4 == address of string table
+# IN: LR == address to return to
+resolveImportEntryElf:
+	mflr r12
+	subi r1, r1, 0x8
+	std r12, 0(r1)
+	bl saveNonVolatileRegisters
+
+	# Save symbol entry and string table addresses to nonvolatile registers
+	mr r14, r3
+	mr r15, r4
+
+	# Make sure the symbol format is ordinal (_fcxelo_).
+	# We don't support named symbols here, no need to, dlopen/LoadLibrary exist.
+	# We only do this here because it's required to get the standard library up and working.
+
+	
+	
+	bl restoreNonVolatileRegisters
+	ld r12, 0(r1)
+	addi r1, r1, 0x8
+	mtlr r12
+	blr
+
+
 # Resolves any dynamic imports within the embedded ELF file
 # IN: r3 == address in memory of the ELF
 # IN: LR == address to return to
 resolveImportsElf:
 	mflr r12
+	subi r1, r1, 0x8
+	std r12, 0(r1)
 	bl saveNonVolatileRegisters
 
 	# Save the address of the ELF to r14
@@ -575,36 +608,102 @@ elfFindDynamicImportTablesLoop:
 	cmpli cr0, r4, ELF_DYN_TAG_SYMTAB
 	beq elfDynamicImportsFoundSymTab
 
+	cmpli cr0, r4, ELF_DYN_TAG_HASH
+	beq elfDynamicImportsFoundHash
+
 	b elfFindDynamicImportTablesNext
-	
+
 elfDynamicImportsFoundStrTab:	
 	lwz r17, 0x4(r3)
 
-	# If we previously found the symbol table, we've got them both
+	# If we previously found the symbol table & hash section, we've got them both
 	cmpli cr0, r18, 0
-	bne elfFoundDynamicImportTables
-	b elfFindDynamicImportTablesNext
+	beq elfFindDynamicImportTablesNext
+
+	cmpli cr0, r19, 0
+	beq elfFindDynamicImportTablesNext
+
+	b elfFoundDynamicImportTables
 
 elfDynamicImportsFoundSymTab:
 	lwz r18, 0x4(r3)
 
-	# If we previously found the string table, we've got them both
+	# If we previously found the string table & hash section, we've got them both
 	cmpli cr0, r17, 0
-	bne elfFoundDynamicImportTables
-	b elfFindDynamicImportTablesNext
+	beq elfFindDynamicImportTablesNext
+
+	cmpli cr0, r19, 0
+	beq elfFindDynamicImportTablesNext
+
+	b elfFoundDynamicImportTables
+
+elfDynamicImportsFoundHash:
+	lwz r19, 0x4(r3)
+
+	# If we previously found the string table & symbol table, we've got them both
+	cmpli cr0, r17, 0
+	beq elfFindDynamicImportTablesNext
+
+	cmpli cr0, r18, 0
+	beq elfFindDynamicImportTablesNext
+
+	b elfFoundDynamicImportTables
 
 elfFindDynamicImportTablesNext:	
 	bdnz elfFindDynamicImportTablesLoop
 
-# If we get here, we couldn't find both tables. Return.
+	# If we get here, we couldn't find both tables. Return.
 	b resolveImportsElfReturn
 
 elfFoundDynamicImportTables:
-	# Address of STRTAB is now in r17, SYMTAB in r18
+	# Make sure we got the hash section. If we didn't, we can't get the section count. Error out.
+	cmpli cr0, r19, 0
+	bne elfFoundDynamicImportTablesNoError
+	b error
+
+elfFoundDynamicImportTablesNoError:
+	# Virtual address of STRTAB is now in r17, SYMTAB in r18, DT_HASH in r19
+	# Add base address to get absolute addresses
+	add r17, r17, r14
+	add r18, r18, r14
+	add r19, r19, r14
 	
+	# Get the number of symbols in SYMTAB from DT_HASH and put it in r20
+	lwz r20, 0x4(r19)
+
+	# Iterate backwards through STRTAB, resolving any dynamic imports we find.
+	# If we can't find any, abort. The program will likely crash otherwise.
+	mtctr r20
+
+elfResolveDynamicImportSymbolsLoop:
+	# Get current index into symbol table
+	mfctr r3
+	subi r3, r3, 1
+
+	# If it's zero, we're done
+	cmpli r3, 0
+	beq resolveImportsElfReturn
+
+	# Transform symbol table index into address
+	mulli r3, r3, 0x18
+	add r3, r3, r18
+
+	# Check whether the current symbol is an import
+	lhz r4, 0xE(r3)
+	cmpli cr0, r4, ELF_DYN_SHN_UNDEF
+	bne elfResolveDynamicImportSymbolsNext
+
+	# If it is an import, resolve it
+	mr r4, r17
+	bl resolveImportEntryElf
 	
+elfResolveDynamicImportSymbolsNext:
+	bdnz elfResolveDynamicImportSymbolsLoop
+
 resolveImportsElfReturn:
 	bl restoreNonVolatileRegisters
+	ld r12, 0(r1)
+	addi r1, r1, 0x8
 	mtlr r12
 	blr
 
