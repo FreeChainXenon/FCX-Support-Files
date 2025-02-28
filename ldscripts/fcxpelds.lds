@@ -15,14 +15,13 @@ SECTIONS
   . = SIZEOF_HEADERS;
   .text  __image_base__ + ( __section_alignment__ < 0x1000 ? . : __section_alignment__ ) :
   {
-    KEEP (*(SORT_NONE(.init)))
     *(.text)
-    *(SORT(.text$*))
-     *(.text.*)
   }
 
   .elf ALIGN(__section_alignment__) :
   {
-    *(.elf*)
+    *(.elf)
   }
+
+  /DISCARD/ : {*(*)}
 }
