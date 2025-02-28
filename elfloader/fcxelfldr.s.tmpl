@@ -681,7 +681,7 @@ elfResolveDynamicImportSymbolsLoop:
 	subi r3, r3, 1
 
 	# If it's zero, we're done
-	cmpli r3, 0
+	cmpli cr0, r3, 0
 	beq resolveImportsElfReturn
 
 	# Transform symbol table index into address
